@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Verification — Analytix Vidya & Solutions</title>
+<style>
+  :root {
+    --navy: #1F3864;
+    --navy-light: #2E4D82;
+    --gold: #B8860B;
+    --cream: #FAF6EC;
+    --ink: #2A2A2A;
+    --muted: #6B6B6B;
+    --valid: #1F6B3A;
+    --invalid: #B3261E;
+    --rule: #D8CFBA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--cream);
+    background-image:
+      linear-gradient(var(--cream), var(--cream)),
+      repeating-linear-gradient(45deg, rgba(31,56,100,0.025) 0, rgba(31,56,100,0.025) 1px, transparent 1px, transparent 14px);
+    font-family: Calibri, "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .frame {
+    width: 100%;
+    max-width: 560px;
+    border: 2px solid var(--navy);
+    outline: 1px solid var(--navy);
+    outline-offset: 5px;
+    background: #fff;
+    padding: 40px 36px 32px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+
+  .brand img {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+  }
+
+  .brand-name {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: bold;
+    font-size: 21px;
+    color: var(--navy);
+    letter-spacing: 0.3px;
+  }
+
+  .tagline {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 26px;
+  }
+
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 26px;
+  }
+
+  #result { min-height: 160px; }
+
+  .state {
+    text-align: center;
+    padding: 10px 0 8px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 18px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 15px;
+    opacity: 0;
+    transform: translateY(4px);
+    animation: settle 0.45s ease-out forwards;
+  }
+
+  @keyframes settle {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .badge.valid   { background: #EAF4ED; color: var(--valid); border: 1px solid #BFDFC9; }
+  .badge.invalid { background: #FBEAEA; color: var(--invalid); border: 1px solid #F0C3C1; }
+  .badge.loading { background: #F2EFE6; color: var(--muted); border: 1px solid var(--rule); }
+
+  dl.record {
+    margin: 26px 0 4px;
+    display: grid;
+    grid-template-columns: 148px 1fr;
+    row-gap: 13px;
+    column-gap: 14px;
+    font-size: 14.5px;
+  }
+
+  dl.record dt { color: var(--muted); }
+  dl.record dd {
+    margin: 0;
+    font-weight: bold;
+    color: var(--navy-light);
+  }
+
+  dl.record dd.course-name {
+    font-weight: normal;
+    color: var(--ink);
+    font-style: italic;
+  }
+
+  .not-found p {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14.5px;
+    line-height: 1.6;
+    max-width: 380px;
+    margin: 14px auto 0;
+  }
+
+  footer {
+    margin-top: 30px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  footer .id-line {
+    font-family: "Courier New", monospace;
+    letter-spacing: 0.3px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="frame">
+    <div class="brand">
+      <img src="avs-logo.png" alt="AVS logo">
+      <span class="brand-name">ANALYTIX VIDYA &amp; SOLUTIONS</span>
+    </div>
+    <p class="tagline">Certificate Verification</p>
+    <hr class="rule">
+
+    <div id="result">
+      <div class="state">
+        <span class="badge loading">Checking record…</span>
+      </div>
+    </div>
+
+    <footer id="footer"></footer>
+  </div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const certId = (params.get('id') || '').trim();
+  const resultEl = document.getElementById('result');
+  const footerEl = document.getElementById('footer');
+
+  function renderNoId() {
+    resultEl.innerHTML = `
+      <div class="state not-found">
+        <span class="badge invalid">No certificate ID provided</span>
+        <p>Scan the QR code printed on the certificate, or open this page with
+        a link in the form <strong>?id=CERT-ID</strong>.</p>
+      </div>`;
+  }
+
+  function renderNotFound(id) {
+    resultEl.innerHTML = `
+      <div class="state not-found">
+        <span class="badge invalid">Not found</span>
+        <p>No certificate matches ID <strong>${escapeHtml(id)}</strong>.
+        If you believe this is an error, contact Analytix Vidya & Solutions directly.</p>
+      </div>`;
+  }
+
+  function renderRevoked(record) {
+    resultEl.innerHTML = `
+      <div class="state">
+        <span class="badge invalid">Revoked</span>
+      </div>
+      ${recordTable(record)}`;
+    footerEl.innerHTML = footerText(record);
+  }
+
+  function renderValid(record) {
+    resultEl.innerHTML = `
+      <div class="state">
+        <span class="badge valid">Verified genuine</span>
+      </div>
+      ${recordTable(record)}`;
+    footerEl.innerHTML = footerText(record);
+  }
+
+  function recordTable(r) {
+    return `
+      <dl class="record">
+        <dt>Name</dt><dd>${escapeHtml(r.name)}</dd>
+        <dt>Roll No.</dt><dd>${escapeHtml(r.rollNo)}</dd>
+        <dt>Degree / Year</dt><dd>${escapeHtml(r.degree)} — ${escapeHtml(r.year)}</dd>
+        <dt>Course</dt><dd class="course-name">${escapeHtml(r.course)}</dd>
+        <dt>Period</dt><dd>${escapeHtml(r.period)}</dd>
+        <dt>Issued on</dt><dd>${escapeHtml(r.issueDate)}</dd>
+      </dl>`;
+  }
+
+  function footerText(r) {
+    return `In collaboration with ${escapeHtml(r.collaboration)}<br>
+      <span class="id-line">Certificate ID: ${escapeHtml(r.id)}</span>`;
+  }
+
+  function escapeHtml(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  if (!certId) {
+    renderNoId();
+  } else {
+    fetch('./students.json', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(records => {
+        const record = records.find(r => r.id.toLowerCase() === certId.toLowerCase());
+        if (!record) {
+          renderNotFound(certId);
+        } else if (record.status === 'revoked') {
+          renderRevoked(record);
+        } else {
+          renderValid(record);
+        }
+      })
+      .catch(() => {
+        resultEl.innerHTML = `
+          <div class="state not-found">
+            <span class="badge invalid">Lookup failed</span>
+            <p>Could not load certificate records. Please try again shortly.</p>
+          </div>`;
+      });
+  }
+</script>
+
+</body>
+</html>
